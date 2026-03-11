@@ -1,0 +1,24 @@
+{
+  "name": "open-space",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "infra:up": "docker-compose up -d",
+    "infra:down": "docker-compose down",
+    "auth:dev": "pnpm --filter auth-service start:dev",
+    "chat:dev": "cd apps/chat-service && source myenv/bin/activate && uvicorn main:app --reload --port 8000",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.25.0",
+  "devDependencies": {
+    "@nx/express": "^22.4.5",
+    "@nx/nest": "^22.4.5",
+    "@nx/node": "^22.4.5",
+    "@nxlv/python": "^22.0.5",
+    "nx": "22.4.5"
+  }
+}

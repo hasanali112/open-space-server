@@ -1,0 +1,117 @@
+version: "3.8"
+
+services:
+  # Postgres Database
+  postgres:
+    image: postgres:16-alpine # আপনার কাছে এই ইমেজটি আছে
+    container_name: myslack_db
+    environment:
+      POSTGRES_USER: myslack
+      POSTGRES_PASSWORD: myslack
+      POSTGRES_DB: myslack
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # pgAdmin (Postgres GUI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: myslack_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+
+  # Redis for Caching and Pub/Sub
+  redis:
+    image: redis:8.0-rc1-alpine
+    container_name: myslack_redis
+    ports:
+      - "6379:6379"
+
+  # Redis Insight (ম্যানেজমেন্টের জন্য)
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: myslack_redisinsight
+    ports:
+      - "5540:5540"
+
+  # RabbitMQ Management
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: myslack_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672" # RabbitMQ connection port
+      - "15672:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # Jaeger for Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: myslack_jaeger
+    ports:
+      - "16686:16686" # UI
+      - "4318:4318" # OTLP http
+      - "14269:14269" # Metrics
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_SERVER_URL=http://prometheus:9090
+
+  # Prometheus for Jaeger Monitor Tab
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: myslack_prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: myslack_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "5010:3000"
+    depends_on:
+      - prometheus
+
+  # Loki for Log Storage
+  loki:
+    image: grafana/loki:latest
+    container_name: myslack_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # Promtail for Log Scrapping
+  promtail:
+    image: grafana/promtail:latest
+    container_name: myslack_promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

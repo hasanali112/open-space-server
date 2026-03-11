@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build and Tooling
+dist/
+build/
+.turbo/
+.vercel/
+.docusaurus/
+.next/
+out/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python (for chat-service)
+myenv/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# OS Cache
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+
+.nx/cache
+.nx/workspace-data
