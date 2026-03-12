@@ -13,7 +13,7 @@ import { AuthServiceController } from './auth-service.controller';
           package: 'auth',
           protoPath: join(
             __dirname,
-            '../../../../libs/contracts/src/proto/auth.proto',
+            '../../../../../libs/contracts/src/proto/auth.proto',
           ),
           url: 'localhost:50051',
         },
