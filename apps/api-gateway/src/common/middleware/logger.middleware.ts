@@ -1,1 +1,26 @@
-// Logger middleware
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+
+@Injectable()
+export class LoggerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger('HTTP');
+
+  use(req: Request, res: Response, next: NextFunction): void {
+    const { ip, method, originalUrl } = req;
+    const userAgent = req.get('user-agent') || '';
+
+    this.logger.log(
+      `Incoming: ${method} ${originalUrl} - ${ip} - ${userAgent}`,
+    );
+
+    res.on('finish', () => {
+      const { statusCode } = res;
+      const contentLength = res.get('content-length');
+      this.logger.log(
+        `Outcome: ${method} ${originalUrl} ${statusCode} ${contentLength} - ${ip}`,
+      );
+    });
+
+    next();
+  }
+}
