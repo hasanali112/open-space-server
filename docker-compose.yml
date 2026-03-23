@@ -1,49 +1,114 @@
-version: "3.8"
 
 services:
-  # Postgres Database
-  postgres:
-    image: postgres:16-alpine # আপনার কাছে এই ইমেজটি আছে
-    container_name: myslack_db
+  # Postgres Master (WRITES)
+  postgres-master:
+    image: bitnami/postgresql:latest
+    container_name: postgres-master
     environment:
-      POSTGRES_USER: myslack
-      POSTGRES_PASSWORD: myslack
-      POSTGRES_DB: myslack
+      - POSTGRESQL_USERNAME=open_space
+      - POSTGRESQL_PASSWORD=open_space
+      - POSTGRESQL_DATABASE=open_space
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_master_data:/bitnami/postgresql
+
+  # Postgres Replica (READS)
+  postgres-replica:
+    image: bitnami/postgresql:latest
+    container_name: postgres-replica
+    environment:
+      - POSTGRESQL_USERNAME=open_space
+      - POSTGRESQL_PASSWORD=open_space
+      - POSTGRESQL_DATABASE=open_space
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_MASTER_HOST=postgres-master
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
+    ports:
+      - "5433:5432"
+    depends_on:
+      - postgres-master
 
   # pgAdmin (Postgres GUI)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: myslack_pgadmin
+    container_name: open_space_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "8080:80"
     depends_on:
-      - postgres
+      - postgres-master
 
-  # Redis for Caching and Pub/Sub
-  redis:
-    image: redis:8.0-rc1-alpine
-    container_name: myslack_redis
+  # Redis Cluster Node 0 (Master 1)
+  redis-node-0:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-0
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
     ports:
       - "6379:6379"
 
-  # Redis Insight (ম্যানেজমেন্টের জন্য)
+  # Redis Cluster Node 1 (Master 2)
+  redis-node-1:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-1
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+
+  # Redis Cluster Node 2 (Master 3)
+  redis-node-2:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-2
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+
+  # Redis Cluster Node 3 (Slave 1)
+  redis-node-3:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-3
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+
+  # Redis Cluster Node 4 (Slave 2)
+  redis-node-4:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-4
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+
+  # Redis Cluster Node 5 (Slave 3)
+  redis-node-5:
+    image: bitnami/redis-cluster:latest
+    container_name: redis-node-5
+    environment:
+      - REDIS_PASSWORD=open_space_redis
+      - REDIS_NODES=redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+
+  # Redis Insight (Management UI)
   redisinsight:
     image: redislabs/redisinsight:latest
-    container_name: myslack_redisinsight
+    container_name: open_space_redisinsight
     ports:
       - "5540:5540"
+    depends_on:
+      - redis-node-0
 
   # RabbitMQ Management
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: myslack_rabbitmq
+    container_name: open_space_rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin123
@@ -54,64 +119,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
-  # Jaeger for Distributed Tracing
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: myslack_jaeger
-    ports:
-      - "16686:16686" # UI
-      - "4318:4318" # OTLP http
-      - "14269:14269" # Metrics
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-      - METRICS_STORAGE_TYPE=prometheus
-      - PROMETHEUS_SERVER_URL=http://prometheus:9090
-
-  # Prometheus for Jaeger Monitor Tab
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: myslack_prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-
-  # Grafana for Visualization
-  grafana:
-    image: grafana/grafana:latest
-    container_name: myslack_grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    ports:
-      - "5010:3000"
-    depends_on:
-      - prometheus
-
-  # Loki for Log Storage
-  loki:
-    image: grafana/loki:latest
-    container_name: myslack_loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./loki-config.yml:/etc/loki/local-config.yaml
-    command: -config.file=/etc/loki/local-config.yaml
-
-  # Promtail for Log Scrapping
-  promtail:
-    image: grafana/promtail:latest
-    container_name: myslack_promtail
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./promtail-config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
 
 volumes:
-  postgres_data:
+  postgres_master_data:
   rabbitmq_data:
